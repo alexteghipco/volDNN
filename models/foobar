@@ -1,0 +1,178 @@
+def solution(data, n):
+    # Your code here
+
+l = [2, 3, 6, 6, 8, 9, 12, 12, 14]
+res = [el for el, cnt in Counter(l).items() if cnt==1]
+
+
+data = [2, 3, 6, 6, 6, 8, 9, 12, 12, 14]
+n=1
+def solution(data, n):
+    f = {}
+    for n in data:
+        if n in f:
+            f[n] += 1
+        else:
+            f[n] = 1
+
+    output = []  # Add 'output' attribute as a list
+    for n in data:
+        if f[n] > n:
+            lst.remove(n)
+
+    #solution.output = output  # Set 'output' as an attribute of 'solution'
+    return output
+
+
+class solution:
+    def __init__(self, d, n):
+            self.d = d
+            self.n = n
+
+    def solution(self):
+        f = {}
+        for num in self.d:
+            if num in f:
+                f[num] += 1
+            else:
+                f[num] = 1
+        dc = self.d.copy()
+        for num in dc:
+            if f[num] > self.n:
+                self.d.remove(num)
+        #output = d
+        return self.d
+
+data = [2, 3, 6, 6, 6, 8, 9, 12, 12, 14]
+result = solution.solution(data, 1)
+
+def solution(d,n):
+    f = {}
+    for num in d:
+        if num in f:
+            f[num] += 1
+        else:
+            f[num] = 1
+    dc = d.copy()
+    for num in dc:
+        if f[num] > n:
+            d.remove(num)
+    #output = d
+    return d
+
+data = [2, 3, 6, 6, 6, 8, 9, 12, 12, 14]
+result = solution.solution(data, 1)
+
+
+
+class solution:
+    @staticmethod
+    def solution(d, n):
+        f = {}
+        o = []
+        for num in d:
+            if num in f:
+                f[num] += 1
+            else:
+                f[num] = 1
+        for num, count in f.items():
+            if count <= n:
+                o.append(int(num))
+        return o
+
+class solution:
+    @staticmethod
+    def solution(d, n):
+        if len(d) < 100:
+            f = {}
+            o = []
+            for num in d:
+                if num in f:
+                    f[num] += 1
+                else:
+                    f[num] = 1
+            for num, count in f.items():
+                if count <= n:
+                    o.append(int(num))
+            return o
+
+solution.solution([1, 2, 3], 0)
+
+import random
+
+random_numbers = []
+for _ in range(99):
+    random_numbers.append(random.randint(1, 1000))
+
+print(random_numbers)
+tmp=solution.solution(random_numbers, 10)
+
+solution.solution(random_numbers, 1)
+
+class solution:
+    @staticmethod
+    def solution(d, n):
+        if len(d) < 100:
+            f = {}
+            o = []
+            for num in d:
+                if num in f:
+                    f[num] += 1
+                else:
+                    f[num] = 1
+            for num, count in f.iteritems():  # Use 'iteritems()' instead of 'items()'
+                if count <= n:
+                    o.append(int(num))
+            return o
+
+def solution(data, n):
+    temp = set(data)
+    for item in temp:
+        if data.count(item) > n:
+            for i in range(data.count(item)-n):
+                data.remove(item)
+    return data
+
+
+solution([1, 2, 2, 3, 3, 3, 4, 5, 5], 1)
+
+
+
+
+
+def solution(d, n):
+    if len(d) < 100:
+        f = {}
+        o = []
+        for num in d:
+            if num in f:
+                f[num] += 1
+            else:
+                f[num] = 1
+        for num, count in f.items():  # Use 'iteritems()' instead of 'items()'
+            if count <= n:
+                o.append(int(num))
+        return o
+
+
+
+
+
+def solution(data, n):
+    if len(data) < 100 and isinstance(n):
+        distinct_set = set(data)
+        for id_number in distinct_set:
+            if data.count(id_number) >= n + 1:
+                data = list(filter(lambda i: i != id_number, data))
+
+        return data
+
+
+def solution(data, n):
+    if len(data) < 100 and isinstance(n, int):
+        distinct_set = set(data)
+        for id_number in distinct_set:
+            if data.count(id_number) >= n + 1:
+                data = list(filter(lambda i: i != id_number, data))
+
+        return data
