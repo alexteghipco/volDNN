@@ -103,7 +103,8 @@ num_epochs = 200 #400 #400 #600 # number of epochs for tuning (inner folds train
 num_epochs_test = 300 #500 #800 #1200 # number of epochs for testing (outer folds training)
 mbs = 16 # mini batch size; larger is better for GPU
 sT = 'standard' # can be standard or balanced -- this is for mini batch 'stratification'. If balanced, no loss function weighting and instead we bootstrap samples for balance in the dataloader. If standard then loss function weighting. If stratification, mini batches will simply be balanced by class (this last option is still in development, do not use)
-priorityMetricTune = 'F1' # should we tune model based on best loss for hyperparameter sets or best F1?
+priorityMetricTune = 'F1' # should we tune model based on best loss for hyperparameter sets or 
+?
 #priorityMetricVal = 'loss' # should we retain model based on best loss or best F1 for final test data (i.e., which model to pluck during training: best based on F1 or loss for validation data?)
 priorityMetricTest = 'F1' # should we retain model based on best loss or best F1 for final test data (i.e., which model to pluck during training: best based on F1 or loss for validation data?)
 
@@ -558,7 +559,7 @@ for r in range(reps):
                 best_score_loss = avg_inner_score_loss
                 best_hyperparams_loss = (lr, drp, l2, dpth, netType)
                 if verbose >= 1:
-                    print('******************* Best F1 score is now updated to :', avg_inner_score_loss)
+                    print('******************* Best loss is now updated to :', avg_inner_score_loss)
                     print(f"******************* HYPERPARAMETERS: {hyperparams}")
 
         # get best hyperparams for the outer fold
