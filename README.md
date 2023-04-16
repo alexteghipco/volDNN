@@ -1,6 +1,6 @@
-# volDNN: Relatively flexible examples for building DNNs with volumetric MRI data in pycharm. 
+# volDNN
 
-I haven't been able to find many thorough tutorials for building volumetric DNN models so I thought I would share one. volDNN can help you train a volumetric DNN in a repeated, nested, k-fold cross-validation scheme using pytorch. 
+I haven't been able to find many thorough tutorials for building volumetric DNN models so I thought I would share one. volDNN can help you train a volumetric DNN (e.g., using MRI data) in a repeated, nested, k-fold cross-validation scheme using pytorch. 
     
 Here nesting means: split training data in outer folds into more inner folds that are used to select hyperparameters. Then collapse inner folds and repartition data into train and validation sets for retraining final network. Finally, test on test data left out in the initial outer folds.
             
