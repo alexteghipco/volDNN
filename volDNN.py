@@ -680,4 +680,3 @@ for r in range(reps):
 
     with open(oF, 'wb') as f:
         pickle.dump(dd, f)
-        pickle.dump(dd, f)
