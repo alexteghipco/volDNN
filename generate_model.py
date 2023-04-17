@@ -5,7 +5,7 @@ from models import (cnn, C3DNet, resnet, ResNetV2, ResNeXt, ResNeXtV2, WideResNe
 # from opts import parse_opts
 import argparse
 
-def getDNN(cnn_name, model_depth, n_classes, in_channels, sample_size, drop):
+def getDNN(cnn_name, model_depth, n_classes, in_channels, sample_size, drop, cuda):
     # simple CNN 
     if cnn_name == 'cnn':
         """
@@ -189,7 +189,7 @@ def getDNN(cnn_name, model_depth, n_classes, in_channels, sample_size, drop):
             num_classes=n_classes,
             in_channels=in_channels)
 
-    if torch.cuda.is_available():
+    if torch.cuda.is_available() and cuda:
         model.cuda()
 
     return model
@@ -204,6 +204,7 @@ if __name__ == '__main__':
     parser.add_argument('--in_channels', default=1, type=int, help='model input channels (1|3)')
     parser.add_argument('--sample_size', default=236, type=int, help='image size')
     parser.add_argument('--drop', default=0.7, type=int, help='dropout frequency')
+    parser.add_argument('--cuda', default=True, type=bool, help='use cuda')
     args = parser.parse_args()
 
     model = getDNN(cnn_name=args.cnn_name,
@@ -211,5 +212,6 @@ if __name__ == '__main__':
                  n_classes=args.n_classes,
                  in_channels=args.in_channels,
                  sample_size=args.sample_size,
-                 drop=args.drop
+                 drop=args.drop,
+                 cuda=args.cuda,
                  )
