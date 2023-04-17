@@ -104,7 +104,6 @@ num_epochs_test = 300 #500 #800 #1200 # number of epochs for testing (outer fold
 mbs = 16 # mini batch size; larger is better for GPU
 sT = 'standard' # can be standard or balanced -- this is for mini batch 'stratification'. If balanced, no loss function weighting and instead we bootstrap samples for balance in the dataloader. If standard then loss function weighting. If stratification, mini batches will simply be balanced by class (this last option is still in development, do not use)
 priorityMetricTune = 'F1' # should we tune model based on best loss for hyperparameter sets or 
-?
 #priorityMetricVal = 'loss' # should we retain model based on best loss or best F1 for final test data (i.e., which model to pluck during training: best based on F1 or loss for validation data?)
 priorityMetricTest = 'F1' # should we retain model based on best loss or best F1 for final test data (i.e., which model to pluck during training: best based on F1 or loss for validation data?)
 
@@ -431,7 +430,7 @@ def dnnTrainer(tri, tei, inc, lossFn, num_epochs, lr, drp, l2, dpth, patThresh, 
     return f1vm, lossvm, accvm, acctm, losstm, bestF1v, bestLossv, wmodel, wmodel2, model
 
 """""""""""""""""""""""""""""
-INITIALIZE DATA TRACKERS (ALL WILL BE PICKL'D)
+INITIALIZE DATA TRACKERS (ALL WILL BE PKL'D)
 """""""""""""""""""""""""""""
 hypeTrackerF1o2 = []
 hypeTrackerLosso2 = []
@@ -462,7 +461,7 @@ finpredTrackervY = []
 """""""""""""""""""""""""""""
 START CV
 """""""""""""""""""""""""""""
-# we will use random seed integers to preallocate folds...
+# we will use random seed integers for reproducible folds...
 if ldCV:
     with open(oF, 'rb') as f:
         sds = pickle.load(f)['sds']
@@ -680,4 +679,5 @@ for r in range(reps):
     }
 
     with open(oF, 'wb') as f:
+        pickle.dump(dd, f)
         pickle.dump(dd, f)
