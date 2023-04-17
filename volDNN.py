@@ -1,7 +1,7 @@
 import random
 import numpy as np
 import torch
-from torch import nn
+from torch import nn, cuda
 from torch.utils.data import TensorDataset, DataLoader, Dataset
 from torch.utils.data.sampler import WeightedRandomSampler, Sampler
 from scipy.io import loadmat
@@ -13,7 +13,7 @@ from itertools import cycle
 import matplotlib
 import matplotlib.pyplot as plt
 import pickle
-matplotlib.use('tkagg')
+#matplotlib.use('tkagg')
 
 """""""""""""""""""""""""""""
 SUMMARY OF SCRIPT
@@ -47,6 +47,7 @@ SUMMARY OF SCRIPT
 !!! DANGER: ASSUMPTIONS !!!
 """""""""""""""""""""""""""""
 """
+    * IF GPU IS AVAILABLE WILL USE THAT.
     
     * IF TUNING DNN ARCHITECUTRE OR COMPLEXITY LOOK AT CODE IN ./MODELS TO MAKE ANY CHANGES THAT MAY BE NECESSARY FOR 
         YOUR PURPOSE/DATA/LEVEL OF COMPLEXITY.  
@@ -83,29 +84,30 @@ SETTINGS AND HYPERPARAMETERS FOR EVALUATION
 """""""""""""""""""""""""""""
 # START USER-DEFINED VARIABLES
 # FOR CV/GENERAL
-ldCV = False # if true, will load cv scheme from output file oF and overwrite all the other variables after training
-kfo = 6 # number of outer folds for test
+gpu = True # If false will avoid using gpu though it may be available
+ldCV = False # if true, will load cv scheme from file oF and overwrite all the other variables in oF after training (so make a copy!)
+kfo = 6 # number of outer folds for testing
 kfi = 6 # number of inner folds for tuning
 valH = 0.2 # validation holdout for final retraining of CNN (i.e., after tuning we collapse inner folds and repartition training data into train and validation sets for retraining the network)
-hiter = 20 #40 # number of random search iterations over hyperparameter space
-reps = 1 # repeats of entire CV scheme
+hiter = 50 #40 # number of random search iterations over hyperparameter space
+reps = 20 # repeats of entire CV scheme
 inc = 1 # number of channels in network (e.g., how many modalities of images for each subject?)
 
 # FOR HYPERPARAMETER SPACE
-lr_space = [0.000001, 0.00001, 0.0001, 0.001, 0.01] #np.array([0.000001, 0.00001, 0.0001, 0.001, 0.01, 0.1]) # learning rates to evaluate
-drp_space = [0.8, 0.5] #np.array([0.8, 0.7, 0.6, 0.4]) # drop rates to evaluate (only applicable for VGG at the moment)
-l2_space = [0.05, 0.005, 0.0005] #np.array([0.1, 0.05, 0.005, 0.0005]) # l2 norm penalties to add to optimizer
-dpth_space = [1,2,3] #np.array([1,2,3,4]) # network depths to test (see relevant network code in ./models; for vgg and resnet we use relative complexity but for other networks this value should be set to the number of layers in the network)
+lr_space = [0.000001, 0.000005, 0.000007, 0.00001, 0.00003, 0.00005, 0.00007, 0.0001, 0.001, 0.01] #np.array([0.000001, 0.00001, 0.0001, 0.001, 0.01, 0.1]) # learning rates to evaluate
+drp_space = [0.8, 0.7, 0.6, 0.4, 0.2, 0.1] #np.array([0.8, 0.7, 0.6, 0.4]) # drop rates to evaluate (only applicable for VGG at the moment)
+l2_space = [0.1, 0.05, 0.01, 0.005, 0.001, 0.0005] #np.array([0.1, 0.05, 0.005, 0.0005]) # l2 norm penalties to add to optimizer
+dpth_space = [1,2,3,4] #np.array([1,2,3,4]) # network depths to test (see relevant network code in ./models; for vgg and resnet we use relative complexity but for other networks this value should be set to the number of layers in the network)
 network_space = ['vgg'] # which networks to evaluate? #['vgg', 'cnn', 'C3DNet', 'resnet', 'ResNetV2', 'ResNeXt', 'ResNeXtV2', 'WideResNet', 'PreActResNet','EfficientNet', 'DenseNet', 'ShuffleNet', 'ShuffleNetV2', 'SqueezeNet', 'MobileNet', 'MobileNetV2']
 
 # FOR TRAINING
 num_epochs = 200 #400 #400 #600 # number of epochs for tuning (inner folds training)
 num_epochs_test = 300 #500 #800 #1200 # number of epochs for testing (outer folds training)
-mbs = 16 # mini batch size; larger is better for GPU
+mbs = 128 # mini batch size; larger is better for GPU
 sT = 'standard' # can be standard or balanced -- this is for mini batch 'stratification'. If balanced, no loss function weighting and instead we bootstrap samples for balance in the dataloader. If standard then loss function weighting. If stratification, mini batches will simply be balanced by class (this last option is still in development, do not use)
-priorityMetricTune = 'F1' # should we tune model based on best loss for hyperparameter sets or 
-#priorityMetricVal = 'loss' # should we retain model based on best loss or best F1 for final test data (i.e., which model to pluck during training: best based on F1 or loss for validation data?)
+priorityMetricTune = 'F1' # should we tune model based on best loss for hyperparameter sets or best F1?
 priorityMetricTest = 'F1' # should we retain model based on best loss or best F1 for final test data (i.e., which model to pluck during training: best based on F1 or loss for validation data?)
+tuneMetricCeil = 0.9 # what should the max metric be while tuning (i.e., if a hyperparameter set is higher than this value we will ignore it because it's probably overfitting)
 
 # FOR STOPPING
 perfThresh = 1 # threshold for how many 100% accuracy epochs can occur in a row before training termination (accuracy for training data in inner folds)
@@ -115,7 +117,7 @@ patThreshTest = 200 # same as patThresh above but applied only to testing data (
 perfThreshVal = 0.92 # value that perfThresh and perfThreshTest looks for (i.e., it can be something other than 100%)
 
 # FOR FEEDBACK/OUTPUT
-verbose = 3 #2 # 1 is give me the important bits, 2 is give me everything as printed text, 3 is give me most things as text and plot inner training instead of printing, 0 is give me nothing (only applies to inner fold loop)
+verbose = 1 #2 # 1 is give me the important bits, 2 is give me everything as printed text, 3 is give me most things as text and plot inner training instead of printing, 0 is give me nothing (only applies to inner fold loop)
 verboseTest = 3 # same as above but only applies for outer fold loop
 oF = 'FirstTry_CV.pkl' # save the outputs to this directory/file
 # END USER-DEFINED VARIABLES
@@ -125,7 +127,7 @@ IMPORT DATA AND PREPROCESS
 """""""""""""""""""""""""""""
 # START USER-DEFINED VARIABLES
 # load data -- !INSERT YOUR OWN CODE HERE!
-inmat = loadmat('/Users/alex/Documents/DNN/BNT/newestDNNCONFUSION/PyTorchInput_withFolds.mat') # this is my data, load yours however
+inmat = loadmat('PyTorchInput_withFolds.mat') # this is my data, load yours however
 yT = inmat['wabClassi'].flatten() # put your classes in a variable called yT. Here I flatten it, you may not have to. Check if your data has more than one dimension. It shouldn't.
 #yF = yT
 yF = inmat['wabClass2i'].flatten() # for your data, make this identical to yT like the above line 130. This is the vector on which stratitfication will be based. I was experimenting with using more granular classes for stratification while still using yT for testing
@@ -241,7 +243,13 @@ def getPerf(tei, model, lossFn=None, model_state=None, multiClass=False):
     val_fn = 0
     with torch.no_grad():
         for val_idx, (data2, target2) in enumerate(tei):
-            output2 = model(data2).squeeze()
+            if next(model.parameters()).is_cuda:
+                data2 = data2.to('cuda')
+                output2 = model(data2).squeeze()
+                output2 = output2.to('cpu')
+            else:
+                output2 = model(data2).squeeze()
+
             if lossFn is not None:
                 loss += lossFn(output2, target2.squeeze())
 
@@ -317,7 +325,7 @@ def dnnTrainer(tri, tei, inc, lossFn, num_epochs, lr, drp, l2, dpth, patThresh, 
     acct = torch.zeros(len(tri))
 
     # setup model
-    model = getDNN(cnn_name='vgg', model_depth=dpth, n_classes=1, in_channels=inc, sample_size=len(tri.dataset), drop=drp) # 13 works BUT ALSO, 19 with drop = 0.7
+    model = getDNN(cnn_name='vgg', model_depth=dpth, n_classes=1, in_channels=inc, sample_size=len(tri.dataset), drop=drp, cuda=gpu) # 13 works BUT ALSO, 19 with drop = 0.7
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, betas=(0.9, 0.999), weight_decay=l2, amsgrad=False, eps=1e-08) # 0.000005 lr[lri]
 
     # track model state
@@ -328,14 +336,18 @@ def dnnTrainer(tri, tei, inc, lossFn, num_epochs, lr, drp, l2, dpth, patThresh, 
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8))
 
     for e in range(num_epochs):
-        if verbose == 1 or verbose == 2:
+        if verbose >= 2:
             print('-----Epoch:', e+1)
         for batch_idx, (data, target) in enumerate(tri):
 
             # train model...
             model.train()
+            if next(model.parameters()).is_cuda: # we already check for cuda when building the model, now just carry over data if necessary
+                data = data.to('cuda')
             optimizer.zero_grad()
             output = model(data).squeeze()
+            if next(model.parameters()).is_cuda:
+                output = output.to('cpu')
             prob1 = torch.sigmoid(output)
             pred1 = (prob1 > 0.5).float()
             acct[batch_idx] = pred1.eq(target.view_as(pred1)).sum().item() / len(target)
@@ -430,7 +442,7 @@ def dnnTrainer(tri, tei, inc, lossFn, num_epochs, lr, drp, l2, dpth, patThresh, 
     return f1vm, lossvm, accvm, acctm, losstm, bestF1v, bestLossv, wmodel, wmodel2, model
 
 """""""""""""""""""""""""""""
-INITIALIZE DATA TRACKERS (ALL WILL BE PKL'D)
+INITIALIZE DATA TRACKERS (ALL WILL BE PICKL'D)
 """""""""""""""""""""""""""""
 hypeTrackerF1o2 = []
 hypeTrackerLosso2 = []
@@ -461,7 +473,7 @@ finpredTrackervY = []
 """""""""""""""""""""""""""""
 START CV
 """""""""""""""""""""""""""""
-# we will use random seed integers for reproducible folds...
+# we will use random seed integers to preallocate folds...
 if ldCV:
     with open(oF, 'rb') as f:
         sds = pickle.load(f)['sds']
@@ -526,7 +538,7 @@ for r in range(reps):
                 print(f"----> Testing hyperparameters: {hyperparams}")
 
             for i in range(kfi):
-                if verbose >= 1:
+                if verbose >= 2:
                     print(f"----------------Inner fold is: {i+1}  of {kfi}")
                 if sT == 'standard':
                     # weighted loss function
@@ -548,18 +560,25 @@ for r in range(reps):
 
             # keep score and params if it is the best we've seen yet (based on F1 or loss)
             if avg_inner_score_F1 > best_score_F1:
-                best_score_F1 = avg_inner_score_F1
-                best_hyperparams_F1 = (lr, drp, l2, dpth, netType)
-                if verbose >= 1:
-                    print('******************* Best F1 score is now updated to :', avg_inner_score_F1)
-                    print(f"******************* HYPERPARAMETERS: {hyperparams}")
+                if priorityMetricTune == 'F1' and avg_inner_score_F1 < tuneMetricCeil or priorityMetricTune != 'F1':
+                    best_score_F1 = avg_inner_score_F1
+                    best_hyperparams_F1 = (lr, drp, l2, dpth, netType)
+                    if verbose >= 1:
+                        print('******************* Best F1 score is now updated to :', avg_inner_score_F1)
+                        print(f"******************* HYPERPARAMETERS: {hyperparams}")
+                else:
+                    print(f"******************* Found better F1 score {avg_inner_score_F1} but it's above ceiling:{tuneMetricCeil}")
 
             if avg_inner_score_loss < best_score_loss:
-                best_score_loss = avg_inner_score_loss
-                best_hyperparams_loss = (lr, drp, l2, dpth, netType)
-                if verbose >= 1:
-                    print('******************* Best loss is now updated to :', avg_inner_score_loss)
-                    print(f"******************* HYPERPARAMETERS: {hyperparams}")
+                if (priorityMetricTune == 'loss' and avg_inner_score_loss > tuneMetricCeil) or priorityMetricTune != 'loss':
+                    best_score_loss = avg_inner_score_loss
+                    best_hyperparams_loss = (lr, drp, l2, dpth, netType)
+                    if verbose >= 1:
+                        print('******************* Best loss is now updated to :', avg_inner_score_loss)
+                        print(f"******************* HYPERPARAMETERS: {hyperparams}")
+                else:
+                    print(f"******************* Found better loss {avg_inner_score_F1} but it's below floor:{tuneMetricCeil}")
+
 
         # get best hyperparams for the outer fold
         if priorityMetricTune == 'F1':
