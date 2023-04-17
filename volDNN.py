@@ -13,7 +13,7 @@ from itertools import cycle
 import matplotlib
 import matplotlib.pyplot as plt
 import pickle
-#matplotlib.use('tkagg')
+matplotlib.use('tkagg')
 
 """""""""""""""""""""""""""""
 SUMMARY OF SCRIPT
