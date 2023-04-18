@@ -85,36 +85,37 @@ SETTINGS AND HYPERPARAMETERS FOR EVALUATION
 # START USER-DEFINED VARIABLES
 # FOR CV/GENERAL
 gpu = True # If false will avoid using gpu though it may be available
-ldCV = False # if true, will load cv scheme from file oF and overwrite all the other variables in oF after training (so make a copy!)
+ldCV = True # if true, will load cv scheme from file oF and overwrite all the other variables in oF after training (so make a copy!)
 kfo = 6 # number of outer folds for testing
 kfi = 6 # number of inner folds for tuning
 valH = 0.2 # validation holdout for final retraining of CNN (i.e., after tuning we collapse inner folds and repartition training data into train and validation sets for retraining the network)
-hiter = 50 #40 # number of random search iterations over hyperparameter space
+hiter = 40 #40 # number of random search iterations over hyperparameter space
 reps = 20 # repeats of entire CV scheme
 inc = 1 # number of channels in network (e.g., how many modalities of images for each subject?)
 
 # FOR HYPERPARAMETER SPACE
-lr_space = [0.000001, 0.000005, 0.000007, 0.00001, 0.00003, 0.00005, 0.00007, 0.0001, 0.001, 0.01] #np.array([0.000001, 0.00001, 0.0001, 0.001, 0.01, 0.1]) # learning rates to evaluate
-drp_space = [0.8, 0.7, 0.6, 0.4, 0.2, 0.1] #np.array([0.8, 0.7, 0.6, 0.4]) # drop rates to evaluate (only applicable for VGG at the moment)
-l2_space = [0.1, 0.05, 0.01, 0.005, 0.001, 0.0005] #np.array([0.1, 0.05, 0.005, 0.0005]) # l2 norm penalties to add to optimizer
-dpth_space = [1,2,3,4] #np.array([1,2,3,4]) # network depths to test (see relevant network code in ./models; for vgg and resnet we use relative complexity but for other networks this value should be set to the number of layers in the network)
+lr_space = [0.00007, 0.00005, 0.00003, 0.00001, 0.0001] #[0.000001, 0.000005, 0.000007, 0.00001, 0.00003, 0.00005, 0.00007, 0.0001] #, 0.001, 0.01] #np.array([0.000001, 0.00001, 0.0001, 0.001, 0.01, 0.1]) # learning rates to evaluate
+drp_space = [0.8, 0.7, 0.6, 0.5] #[0.8, 0.7, 0.6, 0.5, 0.4] #np.array([0.8, 0.7, 0.6, 0.4]) # drop rates to evaluate (only applicable for VGG at the moment)
+l2_space = [0.005, 0.05, 0.1] #[0.1, 0.05, 0.01, 0.005, 0.001, 0.0005] #np.array([0.1, 0.05, 0.005, 0.0005]) # l2 norm penalties to add to optimizer
+dpth_space = [2, 3] #[1,2,3,4] #np.array([1,2,3,4]) # network depths to test (see relevant network code in ./models; for vgg and resnet we use relative complexity but for other networks this value should be set to the number of layers in the network)
 network_space = ['vgg'] # which networks to evaluate? #['vgg', 'cnn', 'C3DNet', 'resnet', 'ResNetV2', 'ResNeXt', 'ResNeXtV2', 'WideResNet', 'PreActResNet','EfficientNet', 'DenseNet', 'ShuffleNet', 'ShuffleNetV2', 'SqueezeNet', 'MobileNet', 'MobileNetV2']
 
 # FOR TRAINING
-num_epochs = 200 #400 #400 #600 # number of epochs for tuning (inner folds training)
-num_epochs_test = 300 #500 #800 #1200 # number of epochs for testing (outer folds training)
+num_epochs = 800 #800 #400 #400 #600 # number of epochs for tuning (inner folds training)
+num_epochs_test = 800 #800 #500 #800 #1200 # number of epochs for testing (outer folds training)
 mbs = 128 # mini batch size; larger is better for GPU
 sT = 'standard' # can be standard or balanced -- this is for mini batch 'stratification'. If balanced, no loss function weighting and instead we bootstrap samples for balance in the dataloader. If standard then loss function weighting. If stratification, mini batches will simply be balanced by class (this last option is still in development, do not use)
 priorityMetricTune = 'F1' # should we tune model based on best loss for hyperparameter sets or best F1?
 priorityMetricTest = 'F1' # should we retain model based on best loss or best F1 for final test data (i.e., which model to pluck during training: best based on F1 or loss for validation data?)
-tuneMetricCeil = 0.9 # what should the max metric be while tuning (i.e., if a hyperparameter set is higher than this value we will ignore it because it's probably overfitting)
+tuneMetricCeil = 1 # what should the max metric be while tuning (i.e., if a hyperparameter set is higher than this value we will ignore it because it's probably overfitting)
 
 # FOR STOPPING
 perfThresh = 1 # threshold for how many 100% accuracy epochs can occur in a row before training termination (accuracy for training data in inner folds)
-patThresh = 50 #150 # validation patience threshold (based on loss *or* F1). After this many epochs, if loss or F1 has not improved, we terminate. (also for training data in inner folds)
+patThresh = 100 #50 #150 # validation patience threshold (based on loss *or* F1). After this many epochs, if loss or F1 has not improved, we terminate. (also for training data in inner folds)
 perfThreshTest = 50 #5 # same as perfThresh above but applied only to testing data (i.e., when retraining the model for final outer loop predictions)
-patThreshTest = 200 # same as patThresh above but applied only to testing data (i.e., when retraining the model for final outer loop predictions)
-perfThreshVal = 0.92 # value that perfThresh and perfThreshTest looks for (i.e., it can be something other than 100%)
+patThreshTest = 100 # same as patThresh above but applied only to testing data (i.e., when retraining the model for final outer loop predictions)
+perfThreshVal = 0.94 # value that perfThresh and perfThreshTest looks for (i.e., it can be something other than 100%)
+patMetric = 'loss' # should patience threshold apply only to 'loss', 'f1', or 'both'
 
 # FOR FEEDBACK/OUTPUT
 verbose = 1 #2 # 1 is give me the important bits, 2 is give me everything as printed text, 3 is give me most things as text and plot inner training instead of printing, 0 is give me nothing (only applies to inner fold loop)
@@ -237,6 +238,7 @@ def getPerf(tei, model, lossFn=None, model_state=None, multiClass=False):
     loss = 0
     yh = []
     y = []
+    yhp = []
     val_correct = 0
     val_tp = 0
     val_fp = 0
@@ -265,8 +267,10 @@ def getPerf(tei, model, lossFn=None, model_state=None, multiClass=False):
                 pred = prob.argmax(dim=1)
             if pred.numel() == 1: # if batch is 1, yh will not work with tolist as its a tensor scalar that may also be just a 0 (class)
                 yh.append(pred)
+                yhp.append(prob)
             else:
                 yh.extend(pred.tolist())
+                yhp.append(prob)
 
             #yh.extend(pred.tolist())
             y.extend(target2.tolist())
@@ -285,13 +289,13 @@ def getPerf(tei, model, lossFn=None, model_state=None, multiClass=False):
         acc = accuracy_score(y, yh)
         prec, rec, f1, _ = precision_recall_fscore_support(y, yh, average='weighted', zero_division=0)
 
-    return loss, f1, rec, prec, acc, yh, y
+    return loss, f1, rec, prec, acc, yh, y, yhp
 
 
 """""""""""""""""""""""""""""
 MODEL TRAINER
 """""""""""""""""""""""""""""
-def dnnTrainer(tri, tei, inc, lossFn, num_epochs, lr, drp, l2, dpth, patThresh, perfThresh, perfThreshVal, verbose, cf=True, title=None):
+def dnnTrainer(tri, tei, inc, lossFn, num_epochs, lr, drp, l2, dpth, patThresh, perfThresh, perfThreshVal, verbose, patMetric, cf=True, title=None):
     """
     tri is a training dataset, tei is a test dataset, lossFn is a loss function, etc...see all of these parameters in
     the parameter section for more info.
@@ -312,6 +316,7 @@ def dnnTrainer(tri, tei, inc, lossFn, num_epochs, lr, drp, l2, dpth, patThresh, 
 
     # temporary tracking of performance metrics within epoch
     f1vm = np.zeros(num_epochs)
+    f1tm = np.zeros(num_epochs)
     accvm = np.zeros(num_epochs)
     acctm = np.zeros(num_epochs)
     lossvm = np.zeros(num_epochs)
@@ -326,7 +331,7 @@ def dnnTrainer(tri, tei, inc, lossFn, num_epochs, lr, drp, l2, dpth, patThresh, 
 
     # setup model
     model = getDNN(cnn_name='vgg', model_depth=dpth, n_classes=1, in_channels=inc, sample_size=len(tri.dataset), drop=drp, cuda=gpu) # 13 works BUT ALSO, 19 with drop = 0.7
-    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, betas=(0.9, 0.999), weight_decay=l2, amsgrad=False, eps=1e-08) # 0.000005 lr[lri]
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, betas=(0.9, 0.999), weight_decay=l2, amsgrad=True, eps=1e-08) # 0.000005 lr[lri]
 
     # track model state
     wmodel = None
@@ -336,36 +341,26 @@ def dnnTrainer(tri, tei, inc, lossFn, num_epochs, lr, drp, l2, dpth, patThresh, 
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8))
 
     for e in range(num_epochs):
-        if verbose >= 2:
-            print('-----Epoch:', e+1)
-        for batch_idx, (data, target) in enumerate(tri):
+        #if verbose >= 3:
+            #print('-----Epoch:', e+1)
+        # train model...
+        model.train()
 
-            # train model...
-            model.train()
+        for batch_idx, (data, target) in enumerate(tri):
             if next(model.parameters()).is_cuda: # we already check for cuda when building the model, now just carry over data if necessary
                 data = data.to('cuda')
             optimizer.zero_grad()
             output = model(data).squeeze()
             if next(model.parameters()).is_cuda:
                 output = output.to('cpu')
-            prob1 = torch.sigmoid(output)
-            pred1 = (prob1 > 0.5).float()
-            acct[batch_idx] = pred1.eq(target.view_as(pred1)).sum().item() / len(target)
 
             loss = lossFn(output, target)
             loss.backward()
-            losst[batch_idx] = loss.item()
             optimizer.step()
-            beta1 = beta1 * 0.999
 
-            # now eval model...
-            lossv[batch_idx], f1v[batch_idx], _, _, accv[batch_idx], _, _ = getPerf(tei, model, lossFn, model_state=None, multiClass=False)
-
-        f1vm[e] = np.mean(f1v[:].numpy())
-        lossvm[e] = np.mean(lossv[:].numpy())
-        accvm[e] = np.mean(accv[:].numpy())
-        losstm[e] = np.mean(losst[:].numpy())
-        acctm[e] = np.mean(acct[:].numpy())
+        # now eval model...
+        losstm[e], f1tm[e], _, _, acctm[e], _, _, _ = getPerf(tri, model, lossFn, model_state=None, multiClass=False)
+        lossvm[e], f1vm[e], _, _, accvm[e], _, _, _ = getPerf(tei, model, lossFn,model_state=None, multiClass=False)
 
         if f1vm[e] > bestF1v:
             bestF1v = f1vm[e]
@@ -425,11 +420,21 @@ def dnnTrainer(tri, tei, inc, lossFn, num_epochs, lr, drp, l2, dpth, patThresh, 
             perf += 1
         else:
             perf = 0
-
-        if f1Pat >= patThresh or lossPat >= patThresh:
-            if verbose >= 2:
-                print(f"Early stopping on epoch {e} triggered: Validation F1 score or loss did not improve for {patThresh} consecutive epochs.")
-            break
+        if patMetric == 'loss':
+            if lossPat >= patThresh: # f1Pat >= patThresh or
+                if verbose >= 2:
+                    print(f"Early stopping on epoch {e} triggered: Validation F1 score or loss did not improve for {patThresh} consecutive epochs.")
+                break
+        elif patMetric == 'F1':
+            if f1Pat >= patThresh:
+                if verbose >= 2:
+                    print(f"Early stopping on epoch {e} triggered: Validation F1 score or loss did not improve for {patThresh} consecutive epochs.")
+                break
+        elif patMetric == 'both':
+            if lossPat >= patThresh or f1Pat >= patThresh:
+                if verbose >= 2:
+                    print(f"Early stopping on epoch {e} triggered: Validation F1 score or loss did not improve for {patThresh} consecutive epochs.")
+                break
 
         if perf >= perfThresh:
             if verbose >= 2:
@@ -467,8 +472,10 @@ testaccTrackero2 = []
 finpredTrackerv = []
 finpredTrackerYh = []
 finpredTrackerY = []
+finpredTrackerYp = []
 finpredTrackervYh = []
 finpredTrackervY = []
+f1f = np.zeros(reps)
 
 """""""""""""""""""""""""""""
 START CV
@@ -513,72 +520,79 @@ for r in range(reps):
         hyperparameters_chosen = [] # track hyperparams so we do not choose repeats in random search
         if verbose >= 1:
             print(f"----------------------------------------------------------------------Outer fold is {o+1} of {kfo}")
-        for h in range(hiter):
-            if verbose >= 1:
-                print(f"---------------------------------------Random subset is: {h+1} of {hiter}")
 
-            while True:
-                # Choose hyperparameters at random to test
-                lr = random.choice(lr_space)
-                drp = random.choice(drp_space)
-                l2 = random.choice(l2_space)
-                dpth = random.choice(dpth_space)
-                netType = random.choice(network_space)
-                hyperparams = (lr, drp, l2, dpth, netType)
+        if len(lr_space)*len(drp_space)*len(l2_space)*len(dpth_space)*len(network_space) > 1:
+            for h in range(hiter):
+                if verbose >= 1:
+                    print(f"---------------------------------------Random subset is: {h+1} of {hiter}")
 
-                # Check if the hyperparameters have already been chosen
-                if hyperparams not in hyperparameters_chosen:
-                    hyperparameters_chosen.append(hyperparams)
-                break
+                while True:
+                    # Choose hyperparameters at random to test
+                    lr = random.choice(lr_space)
+                    drp = random.choice(drp_space)
+                    l2 = random.choice(l2_space)
+                    dpth = random.choice(dpth_space)
+                    netType = random.choice(network_space)
+                    hyperparams = (lr, drp, l2, dpth, netType)
 
-            avg_inner_score_F1 = 0
-            avg_inner_score_loss = 0
+                    # Check if the hyperparameters have already been chosen
+                    if hyperparams not in hyperparameters_chosen:
+                        hyperparameters_chosen.append(hyperparams)
+                    break
 
-            if verbose >= 1:
-                print(f"----> Testing hyperparameters: {hyperparams}")
+                avg_inner_score_F1 = 0
+                avg_inner_score_loss = 0
 
-            for i in range(kfi):
-                if verbose >= 2:
-                    print(f"----------------Inner fold is: {i+1}  of {kfi}")
-                if sT == 'standard':
-                    # weighted loss function
-                    tmp = np.bincount(yT[nested_indices[o][2][i][0]]) # get inverse class weights for loss function
-                    w = len(nested_indices[o][2][i][0]) / tmp.astype(float)
-                    lossFn = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(w[1]))
-                elif sT == 'balanced':
-                    # no weights because we will bootstrap the undersampled class
-                    lossFn = nn.BCEWithLogitsLoss()
+                if verbose >= 1:
+                    print(f"----> Testing hyperparameters: {hyperparams}")
 
-                tri = torchDataExtractor(nested_indices[o][2][i][0], xr, yT, x.shape, mbs, sampType=sT)
-                tei = torchDataExtractor(nested_indices[o][2][i][1], xr, yT, x.shape, mbs, sampType='standard') # this has to be standard because you should not be bootstrapping validation data. makes no sense.
+                for i in range(kfi):
+                    if verbose >= 2:
+                        print(f"----------------Inner fold is: {i+1}  of {kfi}")
+                    if sT == 'standard':
+                        # weighted loss function
+                        tmp = np.bincount(yT[nested_indices[o][2][i][0]]) # get inverse class weights for loss function
+                        w = len(nested_indices[o][2][i][0]) / tmp.astype(float)
+                        lossFn = nn.BCEWithLogitsLoss(pos_weight=torch.tensor(w[1]))
+                    elif sT == 'balanced':
+                        # no weights because we will bootstrap the undersampled class
+                        lossFn = nn.BCEWithLogitsLoss()
 
-                # train the model
-                f1vm, lossvm, accvm, acctm, losstm, bestF1v, bestLossv_val, _, _, _ = dnnTrainer(tri, tei, inc, lossFn, num_epochs, lr, drp, l2, dpth, patThresh, perfThresh, perfThreshVal, verbose, title=f"Repeat {r+1} / {reps}. Test fold: {o+1} / {kfo}, Inner fold: {i+1} / {kfi} and random search: {h+1} / {hiter}")
+                    tri = torchDataExtractor(nested_indices[o][2][i][0], xr, yT, x.shape, mbs, sampType=sT)
+                    tei = torchDataExtractor(nested_indices[o][2][i][1], xr, yT, x.shape, mbs, sampType='standard') # this has to be standard because you should not be bootstrapping validation data. makes no sense.
 
-                avg_inner_score_loss += bestLossv_val / (kfi - 1) # average score for hyperparameter tuning within inner fold CHANGE TO bestF1v to select based on f1 and bestLossv_val to select based on loss
-                avg_inner_score_F1 += bestF1v / (kfi - 1)
+                    # train the model
+                    f1vm, lossvm, accvm, acctm, losstm, bestF1v, bestLossv_val, _, _, _ = dnnTrainer(tri, tei, inc, lossFn, num_epochs, lr, drp, l2, dpth, patThresh, perfThresh, perfThreshVal, verbose, patMetric, cf = True, title=f"Repeat {r+1} / {reps}. Test fold: {o+1} / {kfo}, Inner fold: {i+1} / {kfi} and random search: {h+1} / {hiter}")
 
-            # keep score and params if it is the best we've seen yet (based on F1 or loss)
-            if avg_inner_score_F1 > best_score_F1:
-                if priorityMetricTune == 'F1' and avg_inner_score_F1 < tuneMetricCeil or priorityMetricTune != 'F1':
-                    best_score_F1 = avg_inner_score_F1
-                    best_hyperparams_F1 = (lr, drp, l2, dpth, netType)
-                    if verbose >= 1:
-                        print('******************* Best F1 score is now updated to :', avg_inner_score_F1)
-                        print(f"******************* HYPERPARAMETERS: {hyperparams}")
-                else:
-                    print(f"******************* Found better F1 score {avg_inner_score_F1} but it's above ceiling:{tuneMetricCeil}")
+                    avg_inner_score_loss += bestLossv_val / (kfi - 1) # average score for hyperparameter tuning within inner fold CHANGE TO bestF1v to select based on f1 and bestLossv_val to select based on loss
+                    avg_inner_score_F1 += bestF1v / (kfi - 1)
 
-            if avg_inner_score_loss < best_score_loss:
-                if (priorityMetricTune == 'loss' and avg_inner_score_loss > tuneMetricCeil) or priorityMetricTune != 'loss':
-                    best_score_loss = avg_inner_score_loss
-                    best_hyperparams_loss = (lr, drp, l2, dpth, netType)
-                    if verbose >= 1:
-                        print('******************* Best loss is now updated to :', avg_inner_score_loss)
-                        print(f"******************* HYPERPARAMETERS: {hyperparams}")
-                else:
-                    print(f"******************* Found better loss {avg_inner_score_F1} but it's below floor:{tuneMetricCeil}")
+                # keep score and params if it is the best we've seen yet (based on F1 or loss)
+                if avg_inner_score_F1 > best_score_F1:
+                    if priorityMetricTune == 'F1' and avg_inner_score_F1 < tuneMetricCeil or priorityMetricTune != 'F1':
+                        best_score_F1 = avg_inner_score_F1
+                        best_hyperparams_F1 = (lr, drp, l2, dpth, netType)
+                        if verbose >= 1:
+                            print('******************* Best F1 score is now updated to :', avg_inner_score_F1)
+                            print(f"******************* HYPERPARAMETERS: {hyperparams}")
+                    else:
+                        print(f"******************* Found better F1 score {avg_inner_score_F1} but it's above ceiling:{tuneMetricCeil}")
 
+                if avg_inner_score_loss < best_score_loss:
+                    if (priorityMetricTune == 'loss' and avg_inner_score_loss > tuneMetricCeil) or priorityMetricTune != 'loss':
+                        best_score_loss = avg_inner_score_loss
+                        best_hyperparams_loss = (lr, drp, l2, dpth, netType)
+                        if verbose >= 1:
+                            print('******************* Best loss is now updated to :', avg_inner_score_loss)
+                            print(f"******************* HYPERPARAMETERS: {hyperparams}")
+                    else:
+                        print(f"******************* Found better loss {avg_inner_score_F1} but it's below floor:{tuneMetricCeil}")
+        else:
+            lr = random.choice(lr_space)
+            drp = random.choice(drp_space)
+            l2 = random.choice(l2_space)
+            dpth = random.choice(dpth_space)
+            netType = random.choice(network_space)
 
         # get best hyperparams for the outer fold
         if priorityMetricTune == 'F1':
@@ -600,16 +614,17 @@ for r in range(reps):
             lossFn = nn.BCEWithLogitsLoss()
 
         # retrain best network and get its performance
-        f1i_val, lossi_val, acci_val, accit_val, lossit_val, bestF1_val, bestLossv_val, wmodel, wmodel2, model = dnnTrainer(tri, vali, inc, lossFn, num_epochs_test, lr, drp, l2, dpth, patThreshTest, perfThreshTest, perfThreshVal, verboseTest, cf=False, title=f"Test fold: {o+1} / {kfo} for repeat {r+1} / {reps}")
+        #f1i_val, lossi_val, acci_val, accit_val, lossit_val, bestF1_val, bestLossv_val, wmodel, wmodel2, model
+        _, _, _, _, _, bestF1_val, bestLossv_val, wmodel, wmodel2, model = dnnTrainer(tri, vali, inc, lossFn, num_epochs_test, lr, drp, l2, dpth, patThreshTest, perfThreshTest, perfThreshVal, verboseTest, patMetric, cf=False, title=f"Test fold: {o+1} / {kfo} for repeat {r+1} / {reps}")
 
         if priorityMetricTest == 'F1':
-            lossval, f1val, recval, precval, accval, yhval, ysval = getPerf(vali, model, lossFn, wmodel, multiClass=False) # change this to wmodel to select best model based on F1, change this to wmodel2 to select best model based on loss
-            loss, f1, rec, prec, acc, yh, ys = getPerf(tei, model, lossFn, wmodel, multiClass=False) # change this to wmodel to select best model based on F1, change this to wmodel2 to select best model based on loss
+            lossval, f1val, recval, precval, accval, yhval, ysval, yhpval = getPerf(vali, model, lossFn, wmodel, multiClass=False) # change this to wmodel to select best model based on F1, change this to wmodel2 to select best model based on loss
+            loss, f1, rec, prec, acc, yh, ys, yp = getPerf(tei, model, lossFn, wmodel, multiClass=False) # change this to wmodel to select best model based on F1, change this to wmodel2 to select best model based on loss
             if verbose >= 1:
                 print(f"Inner validation F1: {best_score_F1}, Outer validation F1: {f1val}, Test F1: {f1}, Outer validation loss: {lossval}, Test loss: {loss}")
         elif priorityMetricTest == 'loss':
-            lossval, f1val, recval, precval, accval, yhval, ysval = getPerf(vali, model, lossFn, wmodel2, multiClass=False) # change this to wmodel to select best model based on F1, change this to wmodel2 to select best model based on loss
-            loss, f1, rec, prec, acc, yh, ys = getPerf(tei, model, lossFn, wmodel2, multiClass=False) # change this to wmodel to select best model based on F1, change this to wmodel2 to select best model based on loss
+            lossval, f1val, recval, precval, accval, yhval, ysval, yhpval = getPerf(vali, model, lossFn, wmodel2, multiClass=False) # change this to wmodel to select best model based on F1, change this to wmodel2 to select best model based on loss
+            loss, f1, rec, prec, acc, yh, ys, yp = getPerf(tei, model, lossFn, wmodel2, multiClass=False) # change this to wmodel to select best model based on F1, change this to wmodel2 to select best model based on loss
             if verbose >= 1:
                 print(f"Inner validation loss: {best_score_loss}, Outer validation loss: {lossval}, Test loss: {loss}, Outer validation F1: {f1val}, Test f1: {f1}")
 
@@ -633,13 +648,13 @@ for r in range(reps):
         vallossTrackero2.append(lossval)
         testlossTrackero2.append(loss)
 
-        valtrlossALLTrackero2.append(lossi_val)
-        valtelossALLTrackero2.append(lossit_val)
+        #valtrlossALLTrackero2.append(lossi_val)
+        #valtelossALLTrackero2.append(lossit_val)
 
-        valteF1ALLTrackero2.append(f1i_val)
+        #valteF1ALLTrackero2.append(f1i_val)
 
-        valtrACCALLTrackero2.append(acci_val)
-        valteACCALLTrackero2.append(accit_val)
+        #valtrACCALLTrackero2.append(acci_val)
+        #valteACCALLTrackero2.append(accit_val)
 
         modelStateTracker.append(wmodel)
         modelStateTracker2.append(wmodel2)
@@ -647,6 +662,7 @@ for r in range(reps):
 
         finpredTrackerYh.append(yh)
         finpredTrackerY.append(ys)
+        finpredTrackerYp.append(yp)
 
         finpredTrackervYh.append(yhval)
         finpredTrackervY.append(ysval)
@@ -694,8 +710,24 @@ for r in range(reps):
         'patThresh': patThresh,
         'perfThreshTest': perfThreshTest,
         'patThreshTest': patThreshTest,
-        'perfThreshVal': perfThreshVal
+        'perfThreshVal': perfThreshVal,
+        'f1f': f1f
     }
 
     with open(oF, 'wb') as f:
+        print('Saving data...')
         pickle.dump(dd, f)
+
+    ranges = [(ii, ii + kfo - 1) for ii in range(0, len(finpredTrackerYh), kfo)]
+    ranges = list(ranges[-1])
+    ysC = [item for lst in finpredTrackerY[ranges[0]:ranges[1]] for item in lst]
+    yhC = [item for lst in finpredTrackerYh[ranges[0]:ranges[1]] for item in lst]
+    tp = sum(1 for p, a in zip(yhC, ysC) if p == 1 and a == 1)
+    fp = sum(1 for p, a in zip(yhC, ysC) if p == 1 and a == 0)
+    fn = sum(1 for p, a in zip(yhC, ysC) if p == 0 and a == 1)
+
+    prec = tp / (tp + fp)
+    rec = tp / (tp + fn)
+    f1f[r] = 2 * (prec * rec) / (prec + rec)
+    print(f"----> FINAL F1 FOR ENTIRE REP: {f1f[r]}")
+
