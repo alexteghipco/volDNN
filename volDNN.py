@@ -18,12 +18,13 @@ SUMMARY OF SCRIPT
 """""""""""""""""""""""""""""
 """
     
-    THIS SCRIPT CAN HELP YOU TRAIN A VOLUMETRIC DNN IN A REPEATED, NESTED, K-FOLD CV SCHEME. MAKE SURE YOU UNDERSTAND 
-    THE ASSUMPTIONS THAT IT MAKES AS DOCUMENTED IN THE NEXT SECTION.
+    THIS SCRIPT CAN HELP YOU TRAIN A VOLUMETRIC (3D) DNN IN A REPEATED, NESTED, K-FOLD CV SCHEME USING PYTORCH. 
+    MAKE SURE YOU UNDERSTAND THE ASSUMPTIONS THAT IT MAKES AS DOCUMENTED IN THE NEXT SECTION.
     
         * NESTING = split training data in outer folds into more inner folds that are used to select hyperparameters.
             Then collapse inner folds and repartition data into train and validation sets for retraining final network.
             Finally, test on test data.
+        * IT WILL USE CUDA IF AVAILABLE
         * IT WILL USE RANDOM SEARCH AND CAN TEST DIFFERENT DNN ARCHITECTURES DURING TUNING. 
         * IT CAN PLOT TRAINING DATA FOR YOU AS IT TRAINS. 
         * IT WILL DO SOME EARLY STOPPING BASED ON F1, ACCURACY AND/OR LOSS INDEPENDENTLY OR COMBINED.
@@ -37,7 +38,7 @@ SUMMARY OF SCRIPT
         2. Alter the code in "import data and preprocess" to load in your own labels and predictor matrix 
             (arranged in a 3d images x subjects matrix)
         3. Run the script
-    * IF ON MAC, DO NOT USE DEFAULT OS INSTALL OF PYTHON AND DO NOT HIDE OSX UI ELEMENTS IN SETTINGS (MATPLOTLIB)
+    * IF ON MAC, DO NOT USE DEFAULT OS INSTALL OF PYTHON AND DO NOT HIDE OSX UI ELEMENTS IN SETTINGS (MATPLOTLIB WILL THROW ERRORS AT YOU)
          
 """
 
@@ -45,7 +46,6 @@ SUMMARY OF SCRIPT
 !!! DANGER: ASSUMPTIONS !!!
 """""""""""""""""""""""""""""
 """
-    * IF GPU IS AVAILABLE WILL USE THAT.
     
     * IF TUNING DNN ARCHITECUTRE OR COMPLEXITY LOOK AT CODE IN ./MODELS TO MAKE ANY CHANGES THAT MAY BE NECESSARY FOR 
         YOUR PURPOSE/DATA/LEVEL OF COMPLEXITY.  
@@ -53,23 +53,25 @@ SUMMARY OF SCRIPT
     
     * THIS SCRIPT WILL RUN A (MANUAL) RANDOM SEARCH. 
         * YOUR HYPERPARAMETER SPACE MUST BE LARGE ENOUGH AND NUMBER OF SEARCH ITERATIONS SMALL ENOUGH TO 
-            FIND UNIQUE SOLUTIONS BY FORCE. OTHERWISE YOU WILL GET STUCK IN A WHILE LOOP THAT SEARCHES FOR
-            NEW SOLUTIONS THAT YOU HAVE NOT RANDOMLY SELECTED IN PREVIOUS ITERATIONS OF THE SEARCH. 
-        
-    * NOT TESTED WITH MULTICLASS BUT SHOULD SUPPORT IT.
-        * MATRIX EXPANSION FOR x IN DATA EXTRACTOR SECTION MAY NEED TO BE EDITED BASED ON YOUR NEEDS
+            FIND UNIQUE SOLUTIONS BY FORCE. THE SCRIPT WILL CHECK TO SEE IF YOU SELECTED TOO MANY SEARCH
+            ITERATIONS AND FIX THIS BUT IF YOU'RE NOT SEEING PROGRESS THIS MAY BE THE ISSUE.
+            
+    * OPTIMIZER IS ADAM BUT WE USE ADAMW BECAUSE WE ASSUME YOU WANT TO TUNE L2. CHANGE IF NECESSARY.
+              
+    * NOT TESTED WITH MULTICLASS BUT SHOULD SUPPORT IT WITH SOME MINOR ALTERATIONS (COMING SOON IF YOU DON'T WANT TO EDIT THEM NOW)
+        * MATRIX EXPANSION FOR x IN DATA EXTRACTOR SECTION MAY NEED TO BE EDITED BASED ON YOUR NEEDS FOR MULTCLASS
         * RESHAPING X IN DATA PREPROCESSING SECTION MAY HAVE TO BE EDITED
         * LOSS FUNCTION MAY NEED TO BE UPDATED IN MAIN CV LOOP (CURRENTLY USING ONLY BCEWITHLOGITS)
-    
-    * OPTIMIZER IS ADAM BUT WE USE ADAMW BECAUSE WE ASSUME YOU WANT TO TUNE L2. CHANGE IF NECESSARY
-        * FOR ADAMW, WE MITIGATE LOSS OSCILLATIONS BY UPDATING EXPONENTIAL DECAY RATE TO INCREASE WEIGHT FOR PAST 
-            GRADIENT ESTIMATE AND REDUCE WEIGHT FOR CURRENT ESTIMATE (USING BETA1 = BETA1*0.999).
-    
+        
     * WE ASSUME YOU WANT TO SAVE OUT ALMOST EVERYTHING (MOST SETTINGS, OUTER MODELS, TRAINING/TUNING CURVES FOR OUTER 
         FOLDS, BEST INNER FOLD PERFORMANCE). EDIT DICTIONARY AT THE END OF THE SCRIPT IF YOU DON'T.
+        * SAVING OCCURS INDEPENDENTLY FOR EACH REPEAT SO THAT WE CAN CLEAR MEMORY. FOLDS ARE SAVED WITH USER-DEFINED OUTPUT
+            FILE STRING APPENDED BY '_FOLD_{NUMBER}.PKL'        
+        * THE ONLY VARIABLES WE KEEP ACROSS REPEATS ARE PERFORMANCE METRICS COMPUTED ACROSS ALL THE LEFT OUT FOLDS AFTER 
+            CONCATENATION(CURRENTLY ACCURACY, AUC, F1)
         
     * IF PERFORMING REPEATED CV YOU CAN REPLICATE THE CV PARTITIONS LATER USING THE RANDOMLY GENERATED 
-        SEEDS STORED/SAVED IN SDS WITH STRATIFIEDKFOLD (SEE CODE IN SETTING UP CV).
+        SEEDS STORED/SAVED IN VARIABLE SDS WITH STRATIFIEDKFOLD (SEE CODE IN SETTING UP CV).
         
     * IF YOU ARE ON A MAC AND GETTING ERRORS, IT'S PROBABLY MATPLOTLIB. ENSURE YOU ARE NOT USING DEFAULT OS PYTHON. E.G.
         USE ANACONDA INSTALL OF PYTHON INSTEAD. IT'S DEFINITELY MATPLOTLIB IF ALL YOU SEE IS A BLACK FIGURE WHEN 
@@ -83,51 +85,54 @@ SETTINGS AND HYPERPARAMETERS FOR EVALUATION
 # START USER-DEFINED VARIABLES
 # FOR CV/GENERAL
 gpu = True # If false will avoid using gpu though it may be available
-ldCV = [] # path to file that will be used to load in random seeds to make folds. If empty will auto generate seeds. (file just needs to be pickled. will search for a variable called sds and make reps equal to its length)
+ldCV = [] # path to file that will be used to load in random seeds to make folds. If empty will auto generate seeds. (file just needs to be pickled. will search for a variable called sds in .pkl and make reps equal to its length)
 kfo = 6 # number of outer folds for testing
 kfi = 6 # number of inner folds for tuning
 valH = 0.2 # validation holdout for final retraining of CNN (i.e., after tuning we collapse inner folds and repartition training data into train and validation sets for retraining the network)
-hiter = 1 #40 # number of random search iterations over hyperparameter space
+hiter = 1 # number of random search iterations over hyperparameter space
 reps = 2 # repeats of entire CV scheme
 inc = 1 # number of channels in network (e.g., how many modalities of images for each subject?)
 
 # FOR HYPERPARAMETER SPACE
-lr_space = [0.00003] #[0.00001, 0.00003, 0.00005, 0.00007, 0.0001, 0.0005] #[0.000001, 0.000005, 0.000007, 0.00001, 0.00003, 0.00005, 0.00007, 0.0001] #, 0.001, 0.01] #np.array([0.000001, 0.00001, 0.0001, 0.001, 0.01, 0.1]) # learning rates to evaluate
-drp_space = [0.7] #[0.8, 0.7, 0.6] #[0.8, 0.7, 0.6, 0.5, 0.4] #np.array([0.8, 0.7, 0.6, 0.4]) # drop rates to evaluate (only applicable for VGG at the moment)
-l2_space = [0.005] #[0.005, 0.05, 0.1] #[0.1, 0.05, 0.01, 0.005, 0.001, 0.0005] #np.array([0.1, 0.05, 0.005, 0.0005]) # l2 norm penalties to add to optimizer
-dpth_space = [2] #[2, 3] #[1,2,3,4] #np.array([1,2,3,4]) # network depths to test (see relevant network code in ./models; for vgg and resnet we use relative complexity but for other networks this value should be set to the number of layers in the network)
-network_space = ['vgg'] # which networks to evaluate? #['vgg', 'cnn', 'C3DNet', 'resnet', 'ResNetV2', 'ResNeXt', 'ResNeXtV2', 'WideResNet', 'PreActResNet','EfficientNet', 'DenseNet', 'ShuffleNet', 'ShuffleNetV2', 'SqueezeNet', 'MobileNet', 'MobileNetV2']
+# note, if you have one value per the following hyperparameters, no tuning will take place
+lr_space = [0.00003] # learning rates to evaluate
+drp_space = [0.7]  # drop rates to evaluate (only applicable for VGG at the moment)
+l2_space = [0.005] # l2 norm penalties to add to optimizer
+dpth_space = [2] # network depths to test (see relevant network code in ./models; for vgg and resnet we use relative complexity but for other networks this value should be set to the number of layers in the network)
+network_space = ['vgg'] # which networks to evaluate? e.g., ['vgg', 'cnn', 'C3DNet', 'resnet', 'ResNetV2', 'ResNeXt', 'ResNeXtV2', 'WideResNet', 'PreActResNet','EfficientNet', 'DenseNet', 'ShuffleNet', 'ShuffleNetV2', 'SqueezeNet', 'MobileNet', 'MobileNetV2']
 
 # FOR TRAINING
-num_epochs = 800 #800 #400 #400 #600 # number of epochs for tuning (inner folds training)
-num_epochs_test = 800 #800 #500 #800 #1200 # number of epochs for testing (outer folds training)
+num_epochs = 800 # number of epochs for tuning (inner folds training)
+num_epochs_test = 800 # number of epochs for testing (outer folds training)
 mbs = 128 # mini batch size; larger is better for GPU
-sT = 'standard' # can be standard or balanced -- this is for mini batch 'stratification'. If balanced, no loss function weighting and instead we bootstrap samples for balance in the dataloader. If standard then loss function weighting. If stratification, mini batches will simply be balanced by class (this last option is still in development, do not use)
+sT = 'standard' # can be standard or balanced -- this is for mini batch 'stratification'. If balanced, no loss function weighting and instead we bootstrap samples for balance in the dataloader. If standard then loss function weighting. If 'stratification', mini batches will simply be balanced by class (this last option is still in development, do not use)
 priorityMetricTune = 'F1' # should we tune model based on best loss for hyperparameter sets or best F1?
 priorityMetricTest = 'F1' # should we retain model based on best loss or best F1 for final test data (i.e., which model to pluck during training: best based on F1 or loss for validation data?)
-tuneMetricCeil = 1 # what should the max metric be while tuning (i.e., if a hyperparameter set is higher than this value we will ignore it because it's probably overfitting)
+tuneMetricCeil = 1 # what should the max alowable value of metric be while tuning? (i.e., if a hyperparameter set is higher than this value we will ignore it because it's probably overfitting)
 
 # FOR STOPPING
 perfThresh = 1 # threshold for how many 100% accuracy epochs can occur in a row before training termination (accuracy for training data in inner folds)
-patThresh = 100 #50 #150 # validation patience threshold (based on loss *or* F1). After this many epochs, if loss or F1 has not improved, we terminate. (also for training data in inner folds)
-perfThreshTest = 50 #5 # same as perfThresh above but applied only to testing data (i.e., when retraining the model for final outer loop predictions)
+patThresh = 100 # validation patience threshold. After this many epochs, if metric of choice has not improved, we terminate. (used for training data in inner folds)
+perfThreshTest = 50 # same as perfThresh above but applied only to testing data (i.e., when retraining the model for final outer loop predictions)
 patThreshTest = 100 # same as patThresh above but applied only to testing data (i.e., when retraining the model for final outer loop predictions)
 perfThreshVal = 0.94 # value that perfThresh and perfThreshTest looks for (i.e., it can be something other than 100%)
-patMetric = 'loss' # should patience threshold apply only to 'loss', 'f1', or 'both'
+patMetric = 'loss' # should patience threshold apply only to 'loss', 'f1', or 'both'. If both, then as soon as one of the two metrics hits the conditonal requirements, we stop training
 
 # FOR FEEDBACK/OUTPUT
-verbose = 1 #2 # 1 is give me the important bits, 2 is give me everything as printed text, 3 is give me most things as text and plot inner training instead of printing, 0 is give me nothing (only applies to inner fold loop)
+verbose = 1 # 1 is give me the important bits, 2 is give me everything as printed text, 3 is give me most things as text and plot inner training instead of printing, 0 is give me nothing (only applies to inner fold loop)
 verboseTest = 3 # same as above but only applies for outer fold loop
 oF = 'FirstTry_CV.pkl' # save the outputs to this directory/file
 # END USER-DEFINED VARIABLES
 
-if verbose == 3 or verboseTest == 3:
+# USER VARIABLES SANITY CHECK
+if verbose == 3 or verboseTest == 3: # in case you run this e.g. on a cluster, we wait to import plotting tools
     import matplotlib
     import matplotlib.pyplot as plt
     matplotlib.use('tkagg')
-if len(lr_space) * len(drp_space) * len(l2_space) * len(dpth_space) * len(network_space) < hiter:  # check if you have just one parameter set you're passing in
+    
+if len(lr_space) * len(drp_space) * len(l2_space) * len(dpth_space) * len(network_space) < hiter:  # check if you are doing more random search iterations than possible and adjust to grid search if necessary
     hiter = len(lr_space) * len(drp_space) * len(l2_space) * len(dpth_space) * len(network_space)
-    print('WARNING: you have selected to perform more hyperparameter searches than possible...fixing to max possible')
+    print('WARNING: you have selected to perform more hyperparameter searches than possible...fixing to max possible (i.e., grid search)')
 
 """""""""""""""""""""""""""""
 IMPORT DATA AND PREPROCESS
@@ -137,13 +142,13 @@ IMPORT DATA AND PREPROCESS
 inmat = loadmat('PyTorchInput_withFolds.mat') # this is my data, load yours however
 yT = inmat['wabClassi'].flatten() # put your classes in a variable called yT. Here I flatten it, you may not have to. Check if your data has more than one dimension. It shouldn't.
 #yF = yT
-yF = inmat['wabClass2i'].flatten() # for your data, make this identical to yT like the above line 130. This is the vector on which stratitfication will be based. I was experimenting with using more granular classes for stratification while still using yT for testing
+yF = inmat['wabClass2i'].flatten() # for your data, make this identical to yT like the above line 144. This is the vector on which stratitfication will be based. I was experimenting with using more granular classes for stratification while still using yT for testing
 x = inmat['data'] # this is a 4D predictor matrix. It needs to be shaped as such: (image dimension 1, image dimension 2, image dimension 3, subjects)
 del(inmat)
 # END USER-DEFINED VARIABLES
 
 # reshape input data and rescale if necessary
-xr = np.reshape(x, (x.shape[0]*x.shape[1]*x.shape[2], x.shape[3]))
+xr = np.reshape(x, (x.shape[0]*x.shape[1]*x.shape[2], x.shape[3])) # we reshape the data to simplify some steps, including preprocessing
 xr = (xr - xr.min()) / (xr.max() - xr.min()) * 2 - 1 #our data has only 4 possible integers so we just rescale from -1 to 1 *EACH IMAGE SEPARATELY*; you could also try normalization or something simple like this: xr = xr / xr.max()
 
 """""""""""""""""""""""""""""
@@ -194,13 +199,13 @@ def torchDataExtractor(id, xr, y, x, mbs, sampType='stratified'):
 
     output: tensor dataset for pytorch
     """
-    tmp = xr[:, id]
-    tmp = np.reshape(tmp, (x[0], x[1], x[2], tmp.shape[1]))
-    tmp = np.transpose(tmp, (3, 0, 1, 2))
-    tmp = torch.from_numpy(np.expand_dims(tmp, axis=1))
+    tmp = xr[:, id] # get only the images for subset of subjects in id
+    tmp = np.reshape(tmp, (x[0], x[1], x[2], tmp.shape[1])) # reshape the first dimension back to original shape of images
+    tmp = np.transpose(tmp, (3, 0, 1, 2)) # move subjects to the first dimension as expected by pytorch
+    tmp = torch.from_numpy(np.expand_dims(tmp, axis=1)) # add in_channels for pytorh. Based on assumptions we've made up to this point, it has to be 1. Make data tensor
 
-    tmp2 = torch.from_numpy(np.transpose(y[id])).to(torch.uint8)
-    tmp3 = tmp2.long()
+    tmp2 = torch.from_numpy(np.transpose(y[id])).to(torch.uint8) # extract and tensor the labels
+    tmp3 = tmp2.long() # this is necessary for balancing only...
 
     if sampType == 'balanced':
         # this implements a sampler with replacement to have balanced minibatches
@@ -320,8 +325,8 @@ def dnnTrainer(tri, tei, inc, lossFn, num_epochs, lr, drp, l2, dpth, patThresh, 
     lossPat = 0 # counter for loss increasing
     f1Pat = 0 # counter for f1 decreasing
     perf = 0 # counter for 100 percent accuracy
-    lid = 0
-    fid = 0
+    lid = 0 # index of best loss. Currently unused but can be used to extract e.g. f1 score associated withbest loss, etc
+    fid = 0 # index of best f1, see above for purpose
 
     # temporary tracking of performance metrics within epoch
     f1vm = np.zeros(num_epochs)
@@ -339,14 +344,14 @@ def dnnTrainer(tri, tei, inc, lossFn, num_epochs, lr, drp, l2, dpth, patThresh, 
     acct = torch.zeros(len(tri))
 
     # setup model
-    model = getDNN(cnn_name='vgg', model_depth=dpth, n_classes=1, in_channels=inc, sample_size=len(tri.dataset), drop=drp, cuda=gpu) # 13 works BUT ALSO, 19 with drop = 0.7
-    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, betas=(0.9, 0.999), weight_decay=l2, amsgrad=True, eps=1e-08) # 0.000005 lr[lri]
+    model = getDNN(cnn_name='vgg', model_depth=dpth, n_classes=1, in_channels=inc, sample_size=len(tri.dataset), drop=drp, cuda=gpu) # this is where we decide if cuda or not. 
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, betas=(0.9, 0.999), weight_decay=l2, amsgrad=True, eps=1e-08)
 
-    # track model state
-    wmodel = None
-    wmodel2 = None
-    wmodelo = None
-    wmodel2o = None
+    # track model/optimizer state for best performing epoch
+    wmodel = None # best model according to f1
+    wmodel2 = None # best model according to loss
+    wmodelo = None # best optimizer according to f1
+    wmodel2o = None # best optimizer according to f1
     if verbose >= 3:
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8))
 
