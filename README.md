@@ -15,10 +15,11 @@ Some features built into volDNN:
 
 
 How to use:
-1. Open volDNN.py and read about the assumptions it makes.
-2. Alter the code in "settings and hyperparameters" section of volDNN.py to suit your needs
-3. Alter the code in "import data and preprocess" to load in your own labels and predictor matrix 
+1. Check dependencies. Either pip install -r requirements.txt or conda env create -f conda_requirements.yaml (note, matplotlib is in the list but is not strictly necessary to run volDNN.py)
+2. Open volDNN.py and read about the assumptions it makes.
+3. Alter the code in "settings and hyperparameters" section of volDNN.py to suit your needs
+4. Alter the code in "import data and preprocess" to load in your own labels and predictor matrix 
     (arranged in a 3d images x subjects matrix)
-3. Run the script
+5. Run the script
         
     * pro tips for mac users: do not use default python os install or hide osx GUI elements in system preferences (matplotlib compatibility issues)
