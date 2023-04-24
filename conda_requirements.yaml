@@ -6,5 +6,6 @@ dependencies:
 - matplotlib==3.7.1
 - scikit-learn==1.2.2
 - torch==2.0.0
-- scipy=1.10.1
+- scipy==1.10.1
+- grad-cam==1.4.6
 name: myenv
