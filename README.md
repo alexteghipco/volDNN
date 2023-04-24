@@ -7,11 +7,12 @@ Here nesting means: split training data in outer folds into more inner folds tha
             
 Some features built into volDNN: 
 
-* it will use random search and can test different DNN architectures during tuning. 
-* it can plot training data for you as it trains. 
-* it will do some early stopping based on F1, accuracy and/or loss independently or combined.
-* it can prioritize loss or f1 scores during tuning and independently during testing (or accuracy with a slight tweak
+* it will use random search and can test different DNN architectures during tuning
+* it can plot training data for you as it train
+* it will do some early stopping based on F1, accuracy, correlation and/or loss independently or combined
+* it can prioritize loss or f1 scores during tuning and independently during testing (or accuracy with a slight tweak)
 * it can load in a cv scheme from a previous run of volDNN for fairer model comparisons
+* it can generate some gradCam++ maps from automatically saved .pkl files(see gradCAMer.py)
 
 
 How to use:
